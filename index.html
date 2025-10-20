@@ -115,28 +115,23 @@ const finalAnswer = document.getElementById('finalAnswer');
 
 /* Animate inner bracket calculation */
 function animateInnerExpression(innerExp, callback) {
-    // Convert 'x' to '*' for proper evaluation
     const expression = innerExp.replace(/x/g, '*');
-    const resultValue = eval(expression); // computes the correct result for any combination
+    const resultValue = eval(expression);
 
-    // Display the tokens for animation purposes
     const tokens = innerExp.split(/([+x])/g);
     textSpan.innerHTML = tokens.map(t => `<span class="token">${t}</span>`).join('');
 
     const tokenSpans = document.querySelectorAll('.token');
 
-    // Highlight all tokens in orange after 1 second
     setTimeout(() => {
         tokenSpans.forEach(t => t.style.color = '#EC5800');
     }, 1000);
 
-    // After another 2 seconds, replace the inner expression with the result
     setTimeout(() => {
         textSpan.innerHTML = `<span class="inserted">${resultValue}</span>`;
         if (callback) callback(resultValue);
     }, 3000);
 }
-
 
 /* Put answer back into full equation */
 function putAnswerBackAndAnimate(innerResult, fullEquation, callback) {
@@ -154,10 +149,51 @@ function putAnswerBackAndAnimate(innerResult, fullEquation, callback) {
         inserted.style.opacity = '1';
     }, 50);
 
-    // Pause 3 seconds to emphasize the answer before continuing
     setTimeout(() => {
         callback(updatedEquation.replace(/<span class="inserted">.*?<\/span>/, innerResult));
     }, 3000);
+}
+
+/* Animate each operation step by step */
+function animateStep(expr) {
+    let tokens = expr.split(/([+x])/g).filter(t => t.trim() !== '');
+    const operators = tokens.filter(t => t === 'x' || t === '+');
+
+    if (operators.length === 0) {
+        showFinalAnswer(eval(expr.replace(/x/g, '*')));
+        return;
+    }
+
+    let opIndex = tokens.indexOf('x');
+    if (opIndex === -1) opIndex = tokens.indexOf('+');
+
+    const left = tokens[opIndex - 1];
+    const operator = tokens[opIndex];
+    const right = tokens[opIndex + 1];
+
+    textSpan.innerHTML = tokens.map((t, i) => {
+        if (i === opIndex - 1 || i === opIndex || i === opIndex + 1) {
+            return `<span class="token" style="color:#EC5800">${t}</span>`;
+        }
+        return `<span class="token">${t}</span>`;
+    }).join('');
+
+    setTimeout(() => {
+        let value;
+        if (operator === 'x') value = parseInt(left) * parseInt(right);
+        if (operator === '+') value = parseInt(left) + parseInt(right);
+
+        tokens.splice(opIndex - 1, 3, value.toString());
+
+        textSpan.innerHTML = tokens.map((t, i) => {
+            if (i === opIndex - 1) return `<span class="inserted">${t}</span>`;
+            return `<span class="token">${t}</span>`;
+        }).join('');
+
+        setTimeout(() => {
+            animateStep(tokens.join(''));
+        }, 2000);
+    }, 2000);
 }
 
 /* Animate full equation recursively */
@@ -171,61 +207,12 @@ function animateEquation(expr) {
             });
         });
     } else {
-        const tokens = expr.split(/([+x])/g);
-        textSpan.innerHTML = tokens.map(t => `<span class="token">${t}</span>`).join('');
-        const tokenSpans = document.querySelectorAll('.token');
-
-        for (let i = 0; i < tokenSpans.length; i++) {
-            if (tokenSpans[i].textContent === 'x') {
-                const left = tokenSpans[i-1];
-                const right = tokenSpans[i+1];
-                setTimeout(() => {
-                    left.style.color = '#EC5800';
-                    tokenSpans[i].style.color = '#EC5800';
-                    right.style.color = '#EC5800';
-                }, 1000);
-                setTimeout(() => {
-                    left.textContent = parseInt(left.textContent) * parseInt(right.textContent);
-                    left.style.color = 'white';
-                    tokenSpans[i].remove();
-                    right.remove();
-                    animateEquation(textSpan.textContent);
-                }, 2000);
-                return;
-            }
-        }
-
-        for (let i = 0; i < tokenSpans.length; i++) {
-            if (tokenSpans[i].textContent === '+') {
-                const left = tokenSpans[i-1];
-                const right = tokenSpans[i+1];
-                setTimeout(() => {
-                    left.style.color = '#EC5800';
-                    tokenSpans[i].style.color = '#EC5800';
-                    right.style.color = '#EC5800';
-                }, 1000);
-                setTimeout(() => {
-                    left.textContent = parseInt(left.textContent) + parseInt(right.textContent);
-                    left.style.color = 'white';
-                    tokenSpans[i].remove();
-                    right.remove();
-
-                    // Final step: show final answer
-                    if (document.querySelectorAll('.token').length === 1) {
-                        showFinalAnswer(left.textContent);
-                    }
-
-                    animateEquation(textSpan.textContent);
-                }, 2000);
-                return;
-            }
-        }
+        animateStep(expr);
     }
 }
 
 /* Show final answer screen */
 function showFinalAnswer(answer) {
-    // Fade out old content
     document.getElementById('equationDisplay').style.transition = 'opacity 1s ease';
     document.getElementById('equationDisplay').style.opacity = 0;
     result.style.transition = 'opacity 1s ease';
@@ -293,7 +280,7 @@ document.addEventListener('keydown', (e) => {
                 result.textContent = "Step 3: Put Your Answer Back Into The Equation And Solve Again";
                 result.style.opacity = 1;
 
-                const finalResult = textSpan.dataset.innerResult || '14';
+                const finalResult = textSpan.dataset.innerResult || equation;
                 putAnswerBackAndAnimate(finalResult, equation, (newEquation) => {
                     animateEquation(newEquation);
                 });
