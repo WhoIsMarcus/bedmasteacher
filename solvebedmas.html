@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equation Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600&display=swap" rel="stylesheet">
+<style>
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    height: 100vh;
+    margin: 0;
+    background-color: #2a0d3a;
+    font-family: 'Baloo 2', cursive;
+    color: white;
+    overflow: hidden;
+}
+
+#equationDisplay {
+    font-size: 80px;
+    text-align: center;
+    user-select: none;
+    max-width: 90%;
+}
+
+#cursor {
+    display: inline-block;
+    width: 10px;
+    background-color: white;
+    margin-left: 4px;
+    height: 80px;
+    vertical-align: middle;
+}
+
+#result {
+    margin-top: 40px;
+    font-size: 36px;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.highlight {
+    color: white;
+    transition: color 1s ease;
+}
+
+.highlight.active {
+    color: #EC5800;
+}
+
+.token {
+    display: inline-block;
+    margin: 0 5px;
+    transition: all 0.5s ease;
+}
+
+.inserted {
+    display: inline-block;
+    color: white;
+}
+
+/* Final Answer Container */
+#finalContainer {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100%;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1s ease;
+}
+
+#finalText {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+#finalAnswer {
+    font-size: 80px;
+    font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div id="equationDisplay">
+    <span id="text"></span><span id="cursor"></span>
+</div>
+<div id="result"></div>
+
+<!-- Final Answer -->
+<div id="finalContainer">
+    <div id="finalText">Your Final Answer Is!</div>
+    <div id="finalAnswer"></div>
+</div>
+
+<script>
+let equation = '';
+let locked = false;
+let step = 0;
+
+const textSpan = document.getElementById('text');
+const cursor = document.getElementById('cursor');
+const result = document.getElementById('result');
+
+const finalContainer = document.getElementById('finalContainer');
+const finalText = document.getElementById('finalText');
+const finalAnswer = document.getElementById('finalAnswer');
+
+/* Animate inner bracket calculation */
+function animateInnerExpression(innerExp, callback) {
+    // Convert 'x' to '*' for proper evaluation
+    const expression = innerExp.replace(/x/g, '*');
+    const resultValue = eval(expression); // computes the correct result for any combination
+
+    // Display the tokens for animation purposes
+    const tokens = innerExp.split(/([+x])/g);
+    textSpan.innerHTML = tokens.map(t => `<span class="token">${t}</span>`).join('');
+
+    const tokenSpans = document.querySelectorAll('.token');
+
+    // Highlight all tokens in orange after 1 second
+    setTimeout(() => {
+        tokenSpans.forEach(t => t.style.color = '#EC5800');
+    }, 1000);
+
+    // After another 2 seconds, replace the inner expression with the result
+    setTimeout(() => {
+        textSpan.innerHTML = `<span class="inserted">${resultValue}</span>`;
+        if (callback) callback(resultValue);
+    }, 3000);
+}
+
+
+/* Put answer back into full equation */
+function putAnswerBackAndAnimate(innerResult, fullEquation, callback) {
+    const updatedEquation = fullEquation.replace(/\([^()]+\)/, `<span class="inserted">${innerResult}</span>`);
+    textSpan.innerHTML = updatedEquation;
+
+    const inserted = textSpan.querySelector('.inserted');
+    inserted.style.display = 'inline-block';
+    inserted.style.transform = 'translateY(-30px)';
+    inserted.style.opacity = '0';
+
+    setTimeout(() => {
+        inserted.style.transition = 'all 0.8s ease';
+        inserted.style.transform = 'translateY(0)';
+        inserted.style.opacity = '1';
+    }, 50);
+
+    // Pause 3 seconds to emphasize the answer before continuing
+    setTimeout(() => {
+        callback(updatedEquation.replace(/<span class="inserted">.*?<\/span>/, innerResult));
+    }, 3000);
+}
+
+/* Animate full equation recursively */
+function animateEquation(expr) {
+    const match = expr.match(/\(([^()]+)\)/);
+    if (match) {
+        const innerContent = match[1];
+        animateInnerExpression(innerContent, (resultValue) => {
+            putAnswerBackAndAnimate(resultValue, expr, (newExpr) => {
+                animateEquation(newExpr);
+            });
+        });
+    } else {
+        const tokens = expr.split(/([+x])/g);
+        textSpan.innerHTML = tokens.map(t => `<span class="token">${t}</span>`).join('');
+        const tokenSpans = document.querySelectorAll('.token');
+
+        for (let i = 0; i < tokenSpans.length; i++) {
+            if (tokenSpans[i].textContent === 'x') {
+                const left = tokenSpans[i-1];
+                const right = tokenSpans[i+1];
+                setTimeout(() => {
+                    left.style.color = '#EC5800';
+                    tokenSpans[i].style.color = '#EC5800';
+                    right.style.color = '#EC5800';
+                }, 1000);
+                setTimeout(() => {
+                    left.textContent = parseInt(left.textContent) * parseInt(right.textContent);
+                    left.style.color = 'white';
+                    tokenSpans[i].remove();
+                    right.remove();
+                    animateEquation(textSpan.textContent);
+                }, 2000);
+                return;
+            }
+        }
+
+        for (let i = 0; i < tokenSpans.length; i++) {
+            if (tokenSpans[i].textContent === '+') {
+                const left = tokenSpans[i-1];
+                const right = tokenSpans[i+1];
+                setTimeout(() => {
+                    left.style.color = '#EC5800';
+                    tokenSpans[i].style.color = '#EC5800';
+                    right.style.color = '#EC5800';
+                }, 1000);
+                setTimeout(() => {
+                    left.textContent = parseInt(left.textContent) + parseInt(right.textContent);
+                    left.style.color = 'white';
+                    tokenSpans[i].remove();
+                    right.remove();
+
+                    // Final step: show final answer
+                    if (document.querySelectorAll('.token').length === 1) {
+                        showFinalAnswer(left.textContent);
+                    }
+
+                    animateEquation(textSpan.textContent);
+                }, 2000);
+                return;
+            }
+        }
+    }
+}
+
+/* Show final answer screen */
+function showFinalAnswer(answer) {
+    // Fade out old content
+    document.getElementById('equationDisplay').style.transition = 'opacity 1s ease';
+    document.getElementById('equationDisplay').style.opacity = 0;
+    result.style.transition = 'opacity 1s ease';
+    result.style.opacity = 0;
+
+    setTimeout(() => {
+        finalContainer.style.display = 'flex';
+        finalContainer.style.opacity = 1;
+        finalAnswer.textContent = answer;
+    }, 1000);
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Backspace') {
+        if (!locked) {
+            equation = equation.slice(0, -1);
+            textSpan.textContent = equation;
+        }
+        return;
+    }
+
+    if (e.key === 'Enter') {
+        if (step === 0) {
+            locked = true;
+            cursor.style.display = 'none';
+            step = 1;
+
+            textSpan.innerHTML = equation.replace(/\(/g, '<span class="highlight">(</span>')
+                                          .replace(/\)/g, '<span class="highlight">)</span>');
+
+            setTimeout(() => {
+                document.querySelectorAll('.highlight').forEach(h => h.classList.add('active'));
+            }, 1000);
+
+            result.textContent = "Step 1: Check For Brackets";
+            result.style.opacity = 0;
+            setTimeout(() => { result.style.opacity = 1; }, 50);
+
+        } else if (step === 1) {
+            result.style.opacity = 0;
+            setTimeout(() => {
+                result.textContent = "Step 2: Look At The Inner Most Brackets";
+                result.style.opacity = 1;
+
+                document.querySelectorAll('.highlight').forEach(h => h.classList.remove('active'));
+
+                const match = equation.match(/\(([^()]+)\)/);
+                if (match) {
+                    const innerContent = match[1];
+                    const innermostHTML = equation.replace(/\(([^()]+)\)/, `<span class="highlight active">(${innerContent})</span>`);
+                    textSpan.innerHTML = innermostHTML;
+
+                    setTimeout(() => {
+                        animateInnerExpression(innerContent, (resultValue) => {
+                            textSpan.dataset.innerResult = resultValue;
+                        });
+                    }, 1000);
+                }
+
+                step = 2;
+            }, 1000);
+        } else if (step === 2) {
+            result.style.opacity = 0;
+            setTimeout(() => {
+                result.textContent = "Step 3: Put Your Answer Back Into The Equation And Solve Again";
+                result.style.opacity = 1;
+
+                const finalResult = textSpan.dataset.innerResult || '14';
+                putAnswerBackAndAnimate(finalResult, equation, (newEquation) => {
+                    animateEquation(newEquation);
+                });
+
+                step = 3;
+            }, 1000);
+        }
+        return;
+    }
+
+    if (!locked && e.key.length === 1) {
+        equation += e.key;
+        textSpan.textContent = equation;
+    }
+});
+</script>
+
+</body>
+</html>
