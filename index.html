@@ -203,10 +203,12 @@ function animateStep(expr) {
     }, 2000);
 }
 
+
 /* Animate full equation recursively */
 function animateEquation(expr) {
     const match = expr.match(/\(([^()]+)\)/);
     if (match) {
+        // Animate inner brackets as before
         const innerContent = match[1];
         animateInnerExpression(innerContent, (resultValue) => {
             putAnswerBackAndAnimate(resultValue, expr, (newExpr) => {
@@ -214,9 +216,11 @@ function animateEquation(expr) {
             });
         });
     } else {
+        // If no brackets, just animate the whole expression
         animateStep(expr);
     }
 }
+
 
 /* Show final answer screen */
 function showFinalAnswer(answer) {
